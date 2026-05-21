@@ -6,7 +6,7 @@
 ██║██║   ██║██╔██╗ ██║██║ ╚███╔╝
 ██║██║   ██║██║╚██╗██║██║ ██╔██╗
 ██║╚██████╔╝██║ ╚████║██║██╔╝ ██╗
-╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝ DS
+╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝ (HBH) (DS) (Ghosty)
 ```
 
 > Outil Python permettant de transformer des scripts `.py` en fichiers exécutables `.exe` et applications Android `.apk`.
