@@ -44,7 +44,7 @@
 Clonez le dépôt :
 
 ```bash
-git clone https://github.com/votreusername/ionix.git
+git clone https://github.com/Chrxsssss/ionix.git
 cd ionix
 ```
 
