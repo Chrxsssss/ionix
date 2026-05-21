@@ -1,4 +1,4 @@
-# 🚀 IONIX BUILDER
+# 🚀 IONIX 
 
 ```bash
 ██╗ ██████╗ ███╗   ██╗██╗██╗  ██╗
@@ -44,8 +44,8 @@
 Clonez le dépôt :
 
 ```bash
-git clone https://github.com/votreusername/IONIX-BUILDER.git
-cd IONIX-BUILDER
+git clone https://github.com/votreusername/ionix.git
+cd ionix
 ```
 
 Installez les dépendances :
@@ -62,7 +62,7 @@ pip install buildozer cython
 Lancez le programme :
 
 ```bash
-python ionix_builder.py
+python ionix.py
 ```
 
 Menu principal :
@@ -113,9 +113,9 @@ bin/votreapp.apk
 # 📂 Structure du Projet
 
 ```bash
-IONIX-BUILDER/
+IONIX/
 │
-├── ionix_builder.py
+├── ionix.py
 ├── README.md
 ├── buildozer.spec
 ├── dist/
@@ -146,7 +146,7 @@ L’utilisateur est responsable du respect des lois et conditions d’utilisatio
 ### Chrxs
 
 ```bash
-IONIX BUILDER - DS Edition
+IONIX - DS Edition
 ```
 
 ---
