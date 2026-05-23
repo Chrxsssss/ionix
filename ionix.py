@@ -69,22 +69,39 @@ def build_exe(py_file):
     if not py_file:
         return
 
-    print("\n[+] Génération du fichier EXE...\n")
+    print("\n[?] Votre application a-t-elle une interface graphique (fenêtre) ?")
+    print("    [1] Oui  -> sans console (mode GUI)")
+    print("    [2] Non  -> avec console (mode CLI)")
+    gui_choice = input("Choix [1/2] : ").strip()
+    noconsole = gui_choice == "1"
+
+    print("\n[+] Generation du fichier EXE...\n")
 
     cmd = [
         sys.executable,
         "-m",
         "PyInstaller",
-        "--onefile",
-        # FIX 3 : --noconsole retiré par défaut pour voir les erreurs éventuelles.
-        # Décommentez la ligne suivante si vous voulez cacher la console :
-        # "--noconsole",
-        py_file,
+        "--onefile",          # EXE unique portable
+        "--clean",            # Build propre a chaque fois
+        "--noupx",            # Evite les faux positifs antivirus
+        "--target-arch", "x86_64",          # Compatible Windows 7/8/10/11 64-bit
+        "--collect-all", "encodings",       # Inclut tous les encodages
+        "--hidden-import", "pkg_resources",
+        "--hidden-import", "ctypes",
+        "--hidden-import", "ctypes.util",
+        "--hidden-import", "importlib",
+        "--hidden-import", "importlib.metadata",
     ]
 
+    if noconsole:
+        cmd.append("--noconsole")
+
+    cmd.append(py_file)
+
     if run_command(cmd):
-        print("\n[✓] EXE généré avec succès.")
-        print("[✓] Regarde dans le dossier : dist/")
+        print("\n[OK] EXE genere avec succes.")
+        print("[OK] Regarde dans le dossier : dist/")
+        print("[i]  Compatible Windows 7 / 8 / 10 / 11 (64-bit)")
 
 
 def is_buildozer_available():
@@ -140,6 +157,37 @@ def is_java_available():
         return False
 
 
+def ensure_pip_conf():
+    """
+    FIX 14 : Sur Kali/Debian/Ubuntu 23+, pip est bloqué par le système.
+    Buildozer appelle pip en interne sans --break-system-packages,
+    ce qui fait échouer le build. On crée ~/.config/pip/pip.conf
+    avec break-system-packages = true pour que TOUS les appels pip
+    (y compris ceux de Buildozer) passent automatiquement.
+    """
+    pip_conf_dir = os.path.expanduser("~/.config/pip")
+    pip_conf_path = os.path.join(pip_conf_dir, "pip.conf")
+
+    # Vérifie si le flag est déjà présent
+    if os.path.exists(pip_conf_path):
+        with open(pip_conf_path, "r") as f:
+            content = f.read()
+        if "break-system-packages" in content:
+            return  # Déjà configuré
+
+    os.makedirs(pip_conf_dir, exist_ok=True)
+
+    # Ajoute la section [global] si absente, sinon ajoute juste le flag
+    if os.path.exists(pip_conf_path):
+        with open(pip_conf_path, "a") as f:
+            f.write("\n[global]\nbreak-system-packages = true\n")
+    else:
+        with open(pip_conf_path, "w") as f:
+            f.write("[global]\nbreak-system-packages = true\n")
+
+    print("\n[i] pip.conf mis à jour pour autoriser les packages système (Kali/Debian).")
+
+
 def build_apk(py_file):
     if os.name == "nt":
         print("\n[!] Buildozer n'est pas pris en charge sous Windows.")
@@ -159,6 +207,9 @@ def build_apk(py_file):
         print("    sudo apt install default-jdk -y")
         print("    Puis vérifiez : javac -version")
         return
+
+    # FIX 14 : corriger pip.conf pour que Buildozer puisse appeler pip librement
+    ensure_pip_conf()
 
     py_file = validate_py_file(py_file)
     if not py_file:
