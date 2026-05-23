@@ -42,7 +42,8 @@ def sanitize_app_name(name):
 
 # FIX 1 : validation du fichier .py (extension + existence + pas un dossier)
 def validate_py_file(py_file):
-    py_file = py_file.strip()
+    # FIX 10 : retire guillemets simples/doubles collés par copier-coller
+    py_file = py_file.strip().strip('"').strip("'")
 
     if not py_file:
         print("\n[!] Aucun fichier saisi.")
@@ -86,26 +87,58 @@ def build_exe(py_file):
         print("[✓] Regarde dans le dossier : dist/")
 
 
+def is_module_installed(module_name):
+    """Vérifie si un module Python est installé et importable."""
+    import importlib.util
+    return importlib.util.find_spec(module_name) is not None
+
+
+def validate_package_name(package_name):
+    """
+    Valide le format du nom de package Android.
+    Règles : au moins 2 segments séparés par '.', chaque segment
+    commence par une lettre minuscule, contient uniquement [a-z0-9_].
+    Ex valide   : com.chrxs.rsw
+    Ex invalides: Ch4.test.app  /  com  /  com.1test.app
+    """
+    segments = package_name.split(".")
+    if len(segments) < 2:
+        return False
+    pattern = re.compile(r"^[a-z][a-z0-9_]*$")
+    return all(pattern.match(s) for s in segments)
+
+
 def build_apk(py_file):
     if os.name == "nt":
         print("\n[!] Buildozer n'est pas pris en charge sous Windows.")
         print("    Utilisez Linux, WSL ou une VM.")
         return
 
-    py_file = validate_py_file(py_file)  # FIX 4 : même validation pour APK
+    # FIX 11 : vérifier que Buildozer est installé AVANT de demander les infos
+    if not is_module_installed("buildozer"):
+        print("\n[!] Buildozer n'est pas installé.")
+        print("    → Allez dans [3] Installer les dépendances → [2] Installer Buildozer + Cython")
+        return
+
+    py_file = validate_py_file(py_file)
     if not py_file:
         return
 
     app_name = sanitize_app_name(input("\nNom de l'application : "))
-    package_name = sanitize_package_name(input("Nom du package (ex: com.test.app) : "))
-
     if not app_name:
-        print("\n[!] Nom invalide.")
+        print("\n[!] Nom d'application invalide.")
         return
 
-    if not package_name or "." not in package_name:
-        print("\n[!] Package invalide.")
-        return
+    # FIX 12 : validation stricte du package + message d'aide clair
+    while True:
+        package_name = sanitize_package_name(input("Nom du package (ex: com.chrxs.monapp) : "))
+        if validate_package_name(package_name):
+            break
+        print("\n[!] Format invalide. Règles :")
+        print("    - Au moins 2 segments séparés par '.'")
+        print("    - Chaque segment commence par une lettre MINUSCULE")
+        print("    - Uniquement lettres minuscules, chiffres, underscores")
+        print("    - Exemple correct : com.chrxs.rsw\n")
 
     wrapper_created = False
 
