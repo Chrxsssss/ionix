@@ -87,10 +87,33 @@ def build_exe(py_file):
         print("[✓] Regarde dans le dossier : dist/")
 
 
-def is_module_installed(module_name):
-    """Vérifie si un module Python est installé et importable."""
+def is_buildozer_available():
+    """
+    Détecte buildozer via 3 méthodes pour couvrir tous les cas d'installation
+    (pip standard, --break-system-packages, pipx, chemin alternatif...).
+    """
+    # Méthode 1 : commande 'buildozer' directe dans le PATH
+    try:
+        r = subprocess.run(["buildozer", "--version"], capture_output=True)
+        if r.returncode == 0:
+            return True
+    except FileNotFoundError:
+        pass
+
+    # Méthode 2 : python -m buildozer (cas pip --break-system-packages)
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "buildozer", "--version"],
+            capture_output=True
+        )
+        if r.returncode == 0:
+            return True
+    except Exception:
+        pass
+
+    # Méthode 3 : importlib (dernier recours)
     import importlib.util
-    return importlib.util.find_spec(module_name) is not None
+    return importlib.util.find_spec("buildozer") is not None
 
 
 def validate_package_name(package_name):
@@ -115,7 +138,7 @@ def build_apk(py_file):
         return
 
     # FIX 11 : vérifier que Buildozer est installé AVANT de demander les infos
-    if not is_module_installed("buildozer"):
+    if not is_buildozer_available():
         print("\n[!] Buildozer n'est pas installé.")
         print("    → Allez dans [3] Installer les dépendances → [2] Installer Buildozer + Cython")
         return
