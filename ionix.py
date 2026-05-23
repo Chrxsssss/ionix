@@ -37,13 +37,35 @@ def sanitize_package_name(name):
 
 
 def sanitize_app_name(name):
-    # BUG FIX 1 : on retire aussi les caractères qui casseraient le fichier .spec
     return re.sub(r"[^0-9a-zA-Z_\- ]", "", name.strip())
 
 
+# FIX 1 : validation du fichier .py (extension + existence + pas un dossier)
+def validate_py_file(py_file):
+    py_file = py_file.strip()
+
+    if not py_file:
+        print("\n[!] Aucun fichier saisi.")
+        return None
+
+    if os.path.isdir(py_file):
+        print(f"\n[!] '{py_file}' est un dossier, pas un fichier .py.")
+        return None
+
+    if not py_file.lower().endswith(".py"):
+        print(f"\n[!] Le fichier doit avoir l'extension .py (reçu : '{py_file}').")
+        return None
+
+    if not os.path.isfile(py_file):
+        print(f"\n[!] Fichier introuvable : '{py_file}'")
+        return None
+
+    return os.path.abspath(py_file)  # FIX 2 : toujours utiliser le chemin absolu
+
+
 def build_exe(py_file):
-    if not os.path.exists(py_file):
-        print("\n[!] Fichier introuvable.")
+    py_file = validate_py_file(py_file)
+    if not py_file:
         return
 
     print("\n[+] Génération du fichier EXE...\n")
@@ -53,7 +75,9 @@ def build_exe(py_file):
         "-m",
         "PyInstaller",
         "--onefile",
-        "--noconsole",
+        # FIX 3 : --noconsole retiré par défaut pour voir les erreurs éventuelles.
+        # Décommentez la ligne suivante si vous voulez cacher la console :
+        # "--noconsole",
         py_file,
     ]
 
@@ -68,8 +92,8 @@ def build_apk(py_file):
         print("    Utilisez Linux, WSL ou une VM.")
         return
 
-    if not os.path.exists(py_file):
-        print("\n[!] Fichier introuvable.")
+    py_file = validate_py_file(py_file)  # FIX 4 : même validation pour APK
+    if not py_file:
         return
 
     app_name = sanitize_app_name(input("\nNom de l'application : "))
@@ -92,16 +116,12 @@ def build_apk(py_file):
                 print("\n[!] main.py existe déjà dans ce dossier, renommez-le d'abord.")
                 return
 
-            # BUG FIX 2 : utiliser os.path.abspath pour un chemin fiable dans runpy
-            abs_py_file = os.path.abspath(py_file).replace("\\", "/")
-
             with open("main.py", "w", encoding="utf-8") as wrapper:
                 wrapper.write("import runpy\n")
-                wrapper.write(f"runpy.run_path(r'{abs_py_file}', run_name='__main__')\n")
+                wrapper.write(f"runpy.run_path(r'{py_file}', run_name='__main__')\n")
 
             wrapper_created = True
 
-        # BUG FIX 3 : ne pas relancer buildozer init si le spec existe déjà
         if not os.path.exists("buildozer.spec"):
             print("\n[+] Initialisation Buildozer...\n")
             if not run_command([sys.executable, "-m", "buildozer", "init"]):
@@ -116,8 +136,6 @@ def build_apk(py_file):
         with open("buildozer.spec", "r", encoding="utf-8") as f:
             data = f.read()
 
-        # BUG FIX 4 : utiliser re.sub pour remplacer même si le spec a déjà
-        # été modifié (évite un remplacement silencieusement raté)
         data = re.sub(r"(?m)^title\s*=.*$", f"title = {app_name}", data)
         data = re.sub(
             r"(?m)^package\.name\s*=.*$",
@@ -142,9 +160,33 @@ def build_apk(py_file):
             print("\n[!] Échec de génération APK.")
 
     finally:
-        # BUG FIX 5 : garantir la suppression de main.py même en cas d'erreur
         if wrapper_created and os.path.exists("main.py"):
             os.remove("main.py")
+
+
+# FIX 5 : détecte si pip est bloqué par le système (Kali, Ubuntu 23+, Debian 12+)
+# et ajoute automatiquement --break-system-packages si nécessaire.
+def pip_install(*packages):
+    base_cmd = [sys.executable, "-m", "pip", "install"] + list(packages)
+
+    # Teste d'abord sans le flag
+    result = subprocess.run(
+        base_cmd,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        return True
+
+    # FIX 6 : si l'erreur est "externally-managed-environment", réessaye avec le flag
+    if "externally-managed-environment" in result.stderr or "externally managed" in result.stderr:
+        print("\n[i] Environnement géré par le système détecté, ajout de --break-system-packages...")
+        return run_command(base_cmd + ["--break-system-packages"])
+
+    # Autre erreur : affiche le message et retourne False
+    print(f"\n[!] Erreur pip :\n{result.stderr.strip()}")
+    return False
 
 
 def install_requirements():
@@ -155,7 +197,7 @@ INSTALLATION DES DEPENDANCES
 =====================================
 
 [1] Installer PyInstaller
-[2] Installer Buildozer
+[2] Installer Buildozer + Cython
 [3] Retour
 
 =====================================
@@ -163,16 +205,29 @@ INSTALLATION DES DEPENDANCES
         choice = input("Choix : ").strip()
 
         if choice == "1":
-            # BUG FIX 6 : afficher le résultat de run_command
-            if run_command([sys.executable, "-m", "pip", "install", "pyinstaller"]):
+            # FIX 7 : mise à jour de pip avant installation pour éviter les erreurs de résolution
+            print("\n[+] Mise à jour de pip...\n")
+            pip_install("--upgrade", "pip")
+
+            print("\n[+] Installation de PyInstaller...\n")
+            if pip_install("pyinstaller"):
                 print("\n[✓] PyInstaller installé.")
             else:
                 print("\n[!] Échec de l'installation de PyInstaller.")
 
         elif choice == "2":
-            ok1 = run_command([sys.executable, "-m", "pip", "install", "buildozer"])
-            ok2 = run_command([sys.executable, "-m", "pip", "install", "cython"])
-            if ok1 and ok2:
+            if os.name == "nt":
+                print("\n[!] Buildozer n'est pas pris en charge sous Windows.")
+                print("    Utilisez Linux, WSL ou une VM.")
+                continue
+
+            # FIX 8 : mise à jour de pip + installation groupée pour éviter les conflits de dépendances
+            print("\n[+] Mise à jour de pip...\n")
+            pip_install("--upgrade", "pip")
+
+            print("\n[+] Installation de Buildozer et Cython...\n")
+            # FIX 9 : installation groupée (un seul appel) = résolution de dépendances cohérente
+            if pip_install("buildozer", "cython"):
                 print("\n[✓] Buildozer et Cython installés.")
             else:
                 print("\n[!] Une ou plusieurs installations ont échoué.")
