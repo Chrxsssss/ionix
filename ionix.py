@@ -131,6 +131,15 @@ def validate_package_name(package_name):
     return all(pattern.match(s) for s in segments)
 
 
+def is_java_available():
+    """Vérifie que javac (Java JDK) est installé et accessible."""
+    try:
+        r = subprocess.run(["javac", "-version"], capture_output=True)
+        return r.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
 def build_apk(py_file):
     if os.name == "nt":
         print("\n[!] Buildozer n'est pas pris en charge sous Windows.")
@@ -141,6 +150,14 @@ def build_apk(py_file):
     if not is_buildozer_available():
         print("\n[!] Buildozer n'est pas installé.")
         print("    → Allez dans [3] Installer les dépendances → [2] Installer Buildozer + Cython")
+        return
+
+    # FIX 13 : vérifier que Java JDK est installé (requis par Buildozer)
+    if not is_java_available():
+        print("\n[!] Java JDK (javac) est introuvable.")
+        print("    Installez-le avec :")
+        print("    sudo apt install default-jdk -y")
+        print("    Puis vérifiez : javac -version")
         return
 
     py_file = validate_py_file(py_file)
